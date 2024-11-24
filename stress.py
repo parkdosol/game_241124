@@ -41,7 +41,7 @@ class MapHandler:
             display_map_ai[r, c] = 1.0
         axs[0, 0].imshow(display_map_ai, cmap="gray", vmin=0, vmax=1)
         axs[0, 0].scatter(self.rover_position_ai[1], self.rover_position_ai[0], c="red", label="Rover")
-        axs[0, 0].set_title("Reinforcement Learning Map")
+        axs[0, 0].set_title("AI Map")
         axs[0, 0].axis("off")
 
         # (1, 0): 확률 분포
