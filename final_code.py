@@ -168,56 +168,60 @@ def find_nearest_white_cell(map_array, rover_position, visited):
     return nearest_cell
 
 
-class PS4Controller: 
-    """
-    PS4 컨트롤러 입력을 처리하는 클래스
-    """
+class PS4Controller:
     def __init__(self):
         pygame.init()
         pygame.joystick.init()
+
+        # 조이스틱 초기화
         self.controller = None
         if pygame.joystick.get_count() > 0:
             self.controller = pygame.joystick.Joystick(0)
             self.controller.init()
+            print(f"Joystick '{self.controller.get_name()}' initialized.")
+        else:
+            print("No joystick detected!")
+
+        # 이동 상태 저장
+        self.x_move = 0
+        self.y_move = 0
+
+    def process_events(self):
+        """
+        Event queue에서 조이스틱 입력을 처리하고 상태를 업데이트합니다.
+        """
+        for event in pygame.event.get():
+            if event.type == pygame.JOYAXISMOTION:
+                # 아날로그 스틱 움직임 처리
+                x_axis = self.controller.get_axis(0)  # 좌/우
+                y_axis = self.controller.get_axis(1)  # 위/아래
+                
+                # 축 민감도 조정 (예: 0.1 이상의 움직임만 인식)
+                self.x_move = 0 if abs(x_axis) < 0.1 else int(round(x_axis))
+                self.y_move = 0 if abs(y_axis) < 0.1 else int(round(-y_axis))  # Y축은 방향 반대
+                
+                print(f"Axis motion: x_move={self.x_move}, y_move={self.y_move}")
+
+            elif event.type == pygame.JOYHATMOTION:
+                # 디지털 D패드 움직임 처리
+                hat_input = self.controller.get_hat(0)  # (x, y)
+                self.x_move, self.y_move = hat_input[1], -hat_input[0]
+                print(f"D-pad motion: x_move={self.x_move}, y_move={self.y_move}")
+
+            elif event.type == pygame.JOYBUTTONDOWN:
+                print(f"Button {event.button} pressed")
+            elif event.type == pygame.JOYBUTTONUP:
+                print(f"Button {event.button} released")
 
     def get_movement(self):
         """
-        Reads D-pad input for rover movement.
+        현재 이동 상태를 반환합니다.
         """
-        pygame.event.pump() 
-        x_move, y_move = 0, 0
-        if self.controller:
-            if self.controller.get_button(11):  # Up (D-pad)
-                print("Up")
-                x_move = -1
-            elif self.controller.get_button(12):  # Down (D-pad)
-                print("Down")
-                x_move = 1
-            elif self.controller.get_button(13):  # Left (D-pad)
-                print("Left")
-                y_move = -1
-            elif self.controller.get_button(14):  # Right (D-pad)
-                print("Right")
-                y_move = 1
-        return x_move, y_move
+        return self.x_move, self.y_move
 
-    def get_label_selection(self, current_label, labels):
-        """
-        Adjusts label selection using L2 and R2.
-        """
-        if self.controller.get_button(6):  # L2
-            current_label = (current_label - 1) % len(labels)
-        elif self.controller.get_button(7):  # R2
-            current_label = (current_label + 1) % len(labels)
-        return current_label
 
-    def submit_guess(self):
-        """
-        Checks if the 'O' button (1) is pressed for submitting the guess.
-        """
-        return self.controller.get_button(1)  # X button
 
-class RoverSimulationAI:
+class RoverSimulation:
     def __init__(self, map_array, start_position, class_pixel_probs, class_probs_list, sorted_labels):
         self.map_array = map_array 
 
@@ -234,6 +238,8 @@ class RoverSimulationAI:
         self.class_pixel_probs = class_pixel_probs
         self.class_probs_list = class_probs_list
         self.sorted_labels = sorted_labels
+
+        self.controller = PS4Controller()  # 컨트롤러를 한 번만 초기화
 
         self.fig = None
         self.ax_map_ai = None
@@ -273,18 +279,34 @@ class RoverSimulationAI:
 
     def update_player(self, frame):
         """Update function for player-controlled rover."""
-        controller = PS4Controller()
-        x_move, y_move = controller.get_movement()
-        self.rover_position_player = (self.rover_position_player[0] + x_move, self.rover_position_player[1] + y_move)
+        # 조이스틱 이벤트 처리
+        self.controller.process_events()
+        x_move, y_move = self.controller.get_movement()
 
-        # Mark the tile as visited
-        if self.map_array[self.rover_position_player] == 1:
-            self.visited_white_player.add(self.rover_position_player)
-        else:
-            self.visited_black_player.add(self.rover_position_player)
+        # 새 좌표 계산
+        new_row = self.rover_position_player[0] + x_move
+        new_col = self.rover_position_player[1] + y_move
 
-        # Update the display
-        display_map_with_rover(self.map_array, self.rover_position_player, self.visited_white_player, self.visited_black_player, self.ax_map_player)
+        # 맵 경계를 벗어나지 않도록 제한
+        if 0 <= new_row < self.map_array.shape[0] and 0 <= new_col < self.map_array.shape[1]:
+            self.rover_position_player = (new_row, new_col)
+
+            # 방문한 타일 기록
+            if self.map_array[self.rover_position_player] == 1:
+                self.visited_white_player.add(self.rover_position_player)
+            else:
+                self.visited_black_player.add(self.rover_position_player)
+
+        # 플롯 업데이트
+        display_map_with_rover(
+            self.map_array, 
+            self.rover_position_player, 
+            self.visited_white_player, 
+            self.visited_black_player, 
+            self.ax_map_player
+        )
+
+        print(f"Player position: {self.rover_position_player}")
 
     def run(self):
         """Run the simulation."""
@@ -318,6 +340,7 @@ class RoverSimulationAI:
         self.ax_bar.set_xticklabels(self.sorted_labels)
         self.ax_bar.set_ylim(0, 1)
 
+
     
 # 데이터 로드 및 모델 학습
 data_by_class = load_data_from_folders("./expanded", img_size=(64, 64), threshold=0.3)
@@ -342,5 +365,5 @@ start_pos = (32, 32)  # Starting near the center of the map
 #class_probs_list = [1 / num_classes] * num_classes
 
 # Run simulation
-simulation = RoverSimulationAI(binary_map, start_pos, class_pixel_probs, class_probs_list, sorted_labels)
+simulation = RoverSimulation(binary_map, start_pos, class_pixel_probs, class_probs_list, sorted_labels)
 simulation.run()
