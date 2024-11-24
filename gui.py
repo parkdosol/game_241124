@@ -34,6 +34,7 @@ class GUI:
 
         # 각 프레임 내부에 텍스트 추가
         tk.Label(self.frame_ai_game, text="AI 게임 화면", bg="blue", fg="white").pack(expand=True)
+        
         tk.Label(self.frame_human_game, text="사람 게임 화면", bg="blue", fg="white").pack(expand=True)
         tk.Label(self.frame_ai_prediction, text="AI의 확률 예측 그래프", bg="blue", fg="white").pack(expand=True)
         tk.Label(self.frame_answer_select, text="정답 선택 창", bg="blue", fg="white").pack(expand=True)
