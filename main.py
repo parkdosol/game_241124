@@ -6,7 +6,6 @@ from gui import GUI
 from game import PS4Controller, Game
 
 import tkinter as tk
-from algorithm_ds import MapHandler, PosteriorCalculator, ProbabilityTrainer, DataManager, ImageProcessor
 import numpy as np
 
 def main():
