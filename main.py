@@ -1,11 +1,7 @@
 import tkinter as tk
-import numpy as np
-
-from algorithm_ds import *
 from gui import GUI
-from game import PS4Controller, Game
-
-import tkinter as tk
+from game import Game
+from algorithm_ds import MapHandler, PosteriorCalculator, ProbabilityTrainer, DataManager, ImageProcessor
 import numpy as np
 
 def main():
@@ -15,7 +11,7 @@ def main():
     print("데이터 및 모델을 로드 중입니다...")
     
     # MapHandler: 맵 파일 로드
-    map_file = "./test_map/label01.npy"  # 맵 파일 경로
+    map_file = "map_file.npy"  # 맵 파일 경로
     map_handler = MapHandler()
     map_array = map_handler.load_map(map_file)
 
@@ -58,6 +54,12 @@ def main():
         root.withdraw()  # GUI 창 숨기기
         game.run()  # 게임 실행
         root.deiconify()  # 게임 종료 후 GUI 창 다시 표시
+
+    # tkinter의 `Button`으로 게임 시작 버튼 추가
+    start_button = tk.Button(
+        gui.frame_ai_game, text="게임 시작", command=run_game, bg="green", fg="white", font=("Arial", 16)
+    )
+    start_button.pack(expand=True)
 
     # tkinter 메인 루프 실행
     root.mainloop()
