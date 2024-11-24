@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import os
 from PIL import Image
+import pygame
 
 def load_data_from_folders(base_dir, img_size=(64, 64), threshold=0.3):
     """
@@ -34,7 +35,7 @@ def load_data_from_folders(base_dir, img_size=(64, 64), threshold=0.3):
                 except Exception as e:
                     print(f"Error loading image {img_path}: {e}")
 
-    return data_by_class
+    return data_by_class 
 
 
 def train_pixel_probabilities(data_by_class):
@@ -74,15 +75,9 @@ def calculate_class_priors(class_counts, total_images):
     return class_priors
 
 
-
-def load_map(file_path):
-    """Load the binary map from a .npy file."""
-    return np.load(file_path)
-
-
 def display_map_with_rover(map_array, rover_position, visited_white, visited_black, ax):
     """Display the map with the rover's position and visited locations."""
-    display_map = np.full_like(map_array, 0.5, dtype=np.float32)  # Default: unexplored (gray)
+    display_map = np.full_like(map_array, 0.5, dtype=np.float32)  # Default: unexplored (gray) 
 
     # Update the map for visited tiles
     for r, c in visited_white:
@@ -140,6 +135,7 @@ def calculate_posterior_probs(visited_white, map_array, class_pixel_probs, class
 
     return posterior_probs
 
+
 def get_next_move_to_target(rover_position, target_position):
     """Calculate the next move toward the target position (one step at a time)."""
     rover_row, rover_col = rover_position
@@ -172,69 +168,142 @@ def find_nearest_white_cell(map_array, rover_position, visited):
     return nearest_cell
 
 
-class RoverSimulation:
+class PS4Controller: 
+    """
+    PS4 컨트롤러 입력을 처리하는 클래스
+    """
+    def __init__(self):
+        pygame.init()
+        pygame.joystick.init()
+        self.controller = None
+        if pygame.joystick.get_count() > 0:
+            self.controller = pygame.joystick.Joystick(0)
+            self.controller.init()
+
+    def get_movement(self):
+        """
+        Reads D-pad input for rover movement.
+        """
+        pygame.event.pump()
+        x_move, y_move = 0, 0
+        if self.controller:
+            if self.controller.get_button(11):  # Up (D-pad)
+                print("Up")
+                x_move = -1
+            elif self.controller.get_button(12):  # Down (D-pad)
+                print("Down")
+                x_move = 1
+            elif self.controller.get_button(13):  # Left (D-pad)
+                print("Left")
+                y_move = -1
+            elif self.controller.get_button(14):  # Right (D-pad)
+                print("Right")
+                y_move = 1
+        return x_move, y_move
+
+    def get_label_selection(self, current_label, labels):
+        """
+        Adjusts label selection using L2 and R2.
+        """
+        if self.controller.get_button(6):  # L2
+            current_label = (current_label - 1) % len(labels)
+        elif self.controller.get_button(7):  # R2
+            current_label = (current_label + 1) % len(labels)
+        return current_label
+
+    def submit_guess(self):
+        """
+        Checks if the 'O' button (1) is pressed for submitting the guess.
+        """
+        return self.controller.get_button(1)  # X button
+
+class RoverSimulationAI:
     def __init__(self, map_array, start_position, class_pixel_probs, class_probs_list, sorted_labels):
-        self.map_array = map_array
-        self.rover_position = start_position
-        self.visited_white = set()  # Tiles visited and white
-        self.visited_black = set()  # Tiles visited and black
-        self.target = None
+        self.map_array = map_array 
+
+        self.rover_position_ai = start_position
+        self.visited_white_ai = set()  # Tiles visited and white
+        self.visited_black_ai = set()  # Tiles visited and black
+        self.target_ai = None
+
+        self.rover_position_player = start_position
+        self.visited_white_player = set()
+        self.visited_black_player = set()
+        self.target_player = None
+
         self.class_pixel_probs = class_pixel_probs
         self.class_probs_list = class_probs_list
         self.sorted_labels = sorted_labels
+
         self.fig = None
         self.ax_map = None
         self.ax_bar = None
         self.anim = None
 
-    def update(self, frame):
+    def update_ai(self, frame):
         """Update function for each frame of the animation."""
-        print(f"Frame: {frame}, Rover position: {self.rover_position}, Target: {self.target}")
-        if self.target is None or self.target == self.rover_position:
+        print(f"Frame: {frame}, Rover position: {self.rover_position_ai}, Target: {self.target_ai}")
+        if self.target_ai is None or self.target_ai == self.rover_position_ai:
             # Find the nearest unvisited white cell
-            visited = self.visited_white.union(self.visited_black)
-            self.target = find_nearest_white_cell(self.map_array, self.rover_position, visited)
+            visited = self.visited_white_ai.union(self.visited_black_ai)
+            self.target_ai = find_nearest_white_cell(self.map_array, self.rover_position_ai, visited)
 
-            if self.target is None:
+            if self.target_ai is None:
                 print("All white areas explored.")
                 self.anim.event_source.stop()  # Stop the animation
                 return
 
         # Get the next move direction toward the target (only up, down, left, right)
-        dr, dc = get_next_move_to_target(self.rover_position, self.target)
-        self.rover_position = (self.rover_position[0] + dr, self.rover_position[1] + dc)
+        dr, dc = get_next_move_to_target(self.rover_position_ai, self.target_ai)
+        self.rover_position_ai = (self.rover_position_ai[0] + dr, self.rover_position_ai[1] + dc)
 
         # Mark the tile as visited
-        if self.map_array[self.rover_position] == 1:
-            self.visited_white.add(self.rover_position)  # Visited and white
+        if self.map_array[self.rover_position_ai] == 1:
+            self.visited_white_ai.add(self.rover_position_ai)  # Visited and white
         else:
-            self.visited_black.add(self.rover_position)  # Visited and black
+            self.visited_black_ai.add(self.rover_position_ai)  # Visited and black
 
         # If the rover reaches the target, clear the target
-        if self.rover_position == self.target:
-            self.target = None
+        if self.rover_position_ai == self.target_ai:
+            self.target_ai = None
 
         # Update the display
-        self.update_display()
+        self.update_display_ai()
+    
+    def update_player(self):
+        controller = PS4Controller()
+        x_move, y_move = controller.get_movement()
+        self.target_player = (self.rover_position_player[0] + x_move, self.rover_position_player[1] + y_move)
+
+        # Mark the tile as visited
+        if self.map_array[self.target_player] == 1:
+            self.visited_white_player.add(self.target_player)
+        else:
+            self.visited_black_player.add(self.target_player)
+
+        # Update the display
+        display_map_with_rover(self.map_array, self.rover_position_player, self.visited_white_player, self.visited_black_player, self.ax_map)
 
     def run(self):
         """Run the simulation."""
         # self.fig, (self.ax_map, self.ax_bar) = plt.subplots(1, 2, figsize=(12, 6))
-        self.fig, (self.ax_map, self.ax_bar) = plt.subplots(2, 1, figsize=(6, 12))
-        self.anim = FuncAnimation(self.fig, self.update, interval=500, repeat=False)
+        self.fig, (self.ax_map, self.ax_bar) = plt.subplots(2, 2, figsize=(12, 12)) # 2x2 grid
+        self.anim_ai = FuncAnimation(self.fig, self.update_ai, interval=500, repeat=False) 
+        self.anim_player = FuncAnimation(self.fig, self.update_player, interval=500, repeat=False) 
+
         plt.show()
 
-    def update_display(self):
+    def update_display_ai(self):
         """Update the map and probability plots."""
         self.ax_map.clear()
         self.ax_bar.clear()
 
         # Display map
-        display_map_with_rover(self.map_array, self.rover_position, self.visited_white, self.visited_black, self.ax_map)
+        display_map_with_rover(self.map_array, self.rover_position_ai, self.visited_white_ai, self.visited_black_ai, self.ax_map)
 
         # Calculate probabilities
         posterior_probs = calculate_posterior_probs(
-            self.visited_white, self.map_array, self.class_pixel_probs, self.class_probs_list, self.sorted_labels
+            self.visited_white_ai, self.map_array, self.class_pixel_probs, self.class_probs_list, self.sorted_labels
         )
 
         # Display probabilities
@@ -244,8 +313,8 @@ class RoverSimulation:
         self.ax_bar.set_ylabel("Probability")
         self.ax_bar.set_xticks(range(len(self.sorted_labels)))
         self.ax_bar.set_xticklabels(self.sorted_labels)
-        self.ax_bar.set_ylim(0, 1)
-
+        self.ax_bar.set_ylim(0, 1)  
+    
 # 데이터 로드 및 모델 학습
 data_by_class = load_data_from_folders("./expanded", img_size=(64, 64), threshold=0.3)
 class_pixel_probs, class_counts, total_images = train_pixel_probabilities(data_by_class)
@@ -269,5 +338,5 @@ start_pos = (32, 32)  # Starting near the center of the map
 #class_probs_list = [1 / num_classes] * num_classes
 
 # Run simulation
-simulation = RoverSimulation(binary_map, start_pos, class_pixel_probs, class_probs_list, sorted_labels)
+simulation = RoverSimulationAI(binary_map, start_pos, class_pixel_probs, class_probs_list, sorted_labels)
 simulation.run()
