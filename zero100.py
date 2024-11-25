@@ -5,6 +5,7 @@ import os
 from PIL import Image
 import pygame
 from matplotlib.lines import Line2D
+import time
 
 
 def load_data_from_folders(base_dir, img_size=(64, 64), threshold=0.3):
@@ -93,6 +94,7 @@ def display_map_with_rover_ai(map_array, rover_position, visited_white, visited_
     ax.scatter(rover_position[1], rover_position[0], c="red", label="Rover")  # Rover's position
     ax.set_title("AI Rover Exploration")
     ax.axis("off")
+
 
 def display_map_with_rover_player(map_array, rover_position, visited_white, visited_black, ax):
     """Display the map with the rover's position and visited locations."""
@@ -239,7 +241,6 @@ class PS4Controller:
         return self.x_move, self.y_move
 
 
-
 class RoverSimulation:
     def __init__(self, map_array, start_position, class_pixel_probs, class_probs_list, sorted_labels):
         self.map_array = map_array 
@@ -267,8 +268,17 @@ class RoverSimulation:
         self.anim_ai = None
         self.anim_player = None
 
+        self.start_time = time.time()  # 시뮬레이션 시작 시간
+        self.elapsed_time = 0
+
+    def update_time(self):
+        """Update the elapsed time."""
+        self.elapsed_time = time.time() - self.start_time
+
     def update_ai(self, frame):
         """Update function for AI rover."""
+        self.update_time()
+
         if self.target_ai is None or self.target_ai == self.rover_position_ai:
             # Find the nearest unvisited white cell
             visited = self.visited_white_ai.union(self.visited_black_ai)
@@ -298,6 +308,8 @@ class RoverSimulation:
 
     def update_player(self, frame):
         """Update function for player-controlled rover."""
+        self.update_time()
+
         # 조이스틱 이벤트 처리
         self.controller.process_events()
         x_move, y_move = self.controller.get_movement()
@@ -347,7 +359,7 @@ class RoverSimulation:
             self.ax_image.text(0.5, 0.5, "Image Load Failed", ha="center", va="center", fontsize=12)
 
         # 굵은 가로줄 추가
-        line = Line2D([0, 1], [0.5, 0.5], transform=self.fig.transFigure, color="black", linewidth=4)
+        line = Line2D([0, 1], [0.5, 0.5], transform=self.fig.transFigure, color="gray", linewidth=4)
         self.fig.add_artist(line)
 
         # 애니메이션 시작
@@ -371,13 +383,13 @@ class RoverSimulation:
 
         # 전체 제목 설정
         self.fig.suptitle(
-            "Cartographer",  # 제목 텍스트
+            f"Who's gonna win? : AI vs Human [{self.elapsed_time:.0f} sec]",  # 제목 텍스트에 경과 시간 추가
             fontsize=24,      # 큰 글씨 크기
             fontweight="bold",  # 굵게
             color="navy"       # 텍스트 색상 (예: 파란색)
         )
         # Display probabilities
-        self.ax_bar.bar(range(len(self.sorted_labels)), posterior_probs) #  확률 플롯 (주석 처리 on/off)
+        self.ax_bar.bar(range(len(self.sorted_labels)), posterior_probs)  # 확률 플롯 (주석 처리 on/off)
         self.ax_bar.set_title("AI Prediction")
         self.ax_bar.set_xlabel("Pattern")
         self.ax_bar.set_ylabel("Probability")
@@ -386,7 +398,6 @@ class RoverSimulation:
         self.ax_bar.set_ylim(0, 1)
 
 
-    
 # 데이터 로드 및 모델 학습
 data_by_class = load_data_from_folders("./expanded", img_size=(64, 64), threshold=0.3)
 class_pixel_probs, class_counts, total_images = train_pixel_probabilities(data_by_class)
@@ -400,14 +411,6 @@ class_probs_list = [class_priors[label] for label in sorted_labels]
 # Load map
 binary_map = np.load("./test_map/label06.npy")
 start_pos = (32, 32)  # Starting near the center of the map
-
-# Define labels for folders 0, 1, 3 in "crack" directory
-#num_classes = 3
-#sorted_labels = [0, 1, 3]
-
-# Generate dummy probabilities for the example
-#class_pixel_probs = {label: np.random.rand(64, 64) for label in sorted_labels}
-#class_probs_list = [1 / num_classes] * num_classes
 
 # Run simulation
 simulation = RoverSimulation(binary_map, start_pos, class_pixel_probs, class_probs_list, sorted_labels)
