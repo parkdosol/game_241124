@@ -197,9 +197,9 @@ class PS4Controller:
                 y_axis = self.controller.get_axis(1)  # 위/아래
                 
                 # 축 민감도 조정 (예: 0.1 이상의 움직임만 인식)
-                self.x_move = 0 if abs(x_axis) < 0.1 else int(round(x_axis))
-                self.y_move = 0 if abs(y_axis) < 0.1 else int(round(-y_axis))  # Y축은 방향 반대
-                
+                self.y_move = 0 if abs(x_axis) < 0.1 else int(round(x_axis))
+                self.x_move = 0 if abs(y_axis) < 0.1 else int(round(-y_axis))  # Y축은 방향 반대
+                self.x_move = -self.x_move  # Y축 방향 반전
                 print(f"Axis motion: x_move={self.x_move}, y_move={self.y_move}")
 
             elif event.type == pygame.JOYHATMOTION:
@@ -332,7 +332,7 @@ class RoverSimulation:
         )
 
         # Display probabilities
-        self.ax_bar.bar(range(len(self.sorted_labels)), posterior_probs)
+        self.ax_bar.bar(range(len(self.sorted_labels)), posterior_probs) # 확률 플롯 (주석 처리 on/off)
         self.ax_bar.set_title("Probability Distribution")
         self.ax_bar.set_xlabel("Labels")
         self.ax_bar.set_ylabel("Probability")
@@ -353,7 +353,7 @@ num_classes = len(sorted_labels)
 class_probs_list = [class_priors[label] for label in sorted_labels]
 
 # Load map
-binary_map = np.load("./test_map/label01.npy")
+binary_map = np.load("./test_map/label09.npy")
 start_pos = (32, 32)  # Starting near the center of the map
 
 # Define labels for folders 0, 1, 3 in "crack" directory
